@@ -9,6 +9,7 @@ import com.usermicro.userservicemicroservices.Mapper.userMapper;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -25,6 +26,7 @@ public class UserServicesImpl implements userServices {
     //  SAVE
     @Override
     public UserDto saveUser(UserDto userDto) {
+
         User user = userMapper.toEntity(userDto);
         User saved = userRepo.save(user);
         return userMapper.toDto(saved);
