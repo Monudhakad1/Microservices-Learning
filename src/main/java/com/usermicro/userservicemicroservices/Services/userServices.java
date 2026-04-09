@@ -1,21 +1,21 @@
 package com.usermicro.userservicemicroservices.Services;
 
+import com.usermicro.userservicemicroservices.entity.Dto.UserDto;
 import com.usermicro.userservicemicroservices.entity.User;
 
 import java.util.List;
 
 public interface userServices {
 
-    User saveUser(User user);
+    UserDto saveUser(UserDto userDto);
 
-    List<User> getAllUsers();
+    List<UserDto> getAllUsers();
 
-    User getUserById(String id);
+    UserDto getUserById(String id);
 
-    User getUserByEmail(String email);
+    UserDto getUserByEmail(String email);
 
     void deleteUserById(String id);
 
-    User updateUserById(String id,String newName,String newEmail );
-
+    UserDto updateUserById(String id, String newName, String newEmail);
 }
