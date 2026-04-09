@@ -1,5 +1,6 @@
 package com.usermicro.userservicemicroservices.Services.impl;
 
+import com.usermicro.userservicemicroservices.Exceptions.ResourceNotFoundException;
 import com.usermicro.userservicemicroservices.Repository.UserRepo;
 import com.usermicro.userservicemicroservices.Services.userServices;
 import com.usermicro.userservicemicroservices.entity.User;
@@ -25,12 +26,12 @@ public class UserServicesImpl implements userServices {
 
     @Override
     public User getUserById(String id) {
-        return userRepo.findById(id).orElse(null);
+        return userRepo.findById(id).orElseThrow(() -> new ResourceNotFoundException("User with given id is not found"));
     }
 
     @Override
     public User getUserByEmail(String email) {
-        return userRepo.findAll().stream().filter(user -> user.getEmail().equals(email)).findFirst().orElse(null);
+        return userRepo.findAll().stream().filter(user -> user.getEmail().equals(email)).findFirst().orElseThrow(()->new ResourceNotFoundException("User with given email is not found"));
     }
 
     @Override
