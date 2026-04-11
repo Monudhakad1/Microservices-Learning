@@ -20,7 +20,6 @@ import org.springframework.web.client.RestTemplate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static java.util.Arrays.stream;
@@ -62,13 +61,13 @@ public class UserServicesImpl implements userServices {
 
         // STEP 2: collect userIds
         List<String> userIds = users.stream()
-                .map(User::getUserId)
+                .map(User::getUserId)   // FIXED
                 .toList();
 
         // STEP 3: call rating service ONCE
         ResponseEntity<List<RatingDto>> response =
                 restTemplate.exchange(
-                        "http://localhost:8081/api/ratings/users?ids=" + String.join(",", userIds),
+                        "http://RATINGSERVICE/api/ratings/users?ids=" + String.join(",", userIds),
                         HttpMethod.GET,
                         null,
                         new ParameterizedTypeReference<List<RatingDto>>() {}
@@ -76,18 +75,38 @@ public class UserServicesImpl implements userServices {
 
         List<RatingDto> allRatings = response.getBody();
 
-        // STEP 4: group ratings by userId
+        // STEP 4: null safety
+        if (allRatings == null) {
+            allRatings = new ArrayList<>();
+        }
+
+        // STEP 5: fetch hotel for each rating
+        allRatings.forEach(rating -> {
+            try {
+                HotelDto hotel = restTemplate.getForObject(
+                        "http://HOTELDETAILS/api/hotels/" + rating.getHotelId(),
+                        HotelDto.class
+                );
+
+                rating.setHotel(hotel); //  IMPORTANT
+
+            } catch (Exception e) {
+                System.out.println("Hotel not found for id: " + rating.getHotelId());
+            }
+        });
+
+        // STEP 6: group ratings by userId
         Map<String, List<RatingDto>> ratingMap =
                 allRatings.stream()
                         .collect(Collectors.groupingBy(RatingDto::getUserId));
 
-        // STEP 5: map users + attach ratings
+        // STEP 7: map users + attach ratings
         return users.stream().map(user -> {
 
             UserDto dto = userMapper.toDto(user);
 
             dto.setRatings(
-                    ratingMap.getOrDefault(user.getUserId(), new ArrayList<>())
+                    ratingMap.getOrDefault(user.getUserId(), new ArrayList<>()) //  FIXED
             );
 
             return dto;
@@ -103,10 +122,10 @@ public class UserServicesImpl implements userServices {
         User user = userRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        // STEP 2: Fetch ratings (FIXED URL ✅)
+        // STEP 2: Fetch ratings (FIXED URL )
         ResponseEntity<List<RatingDto>> response =
                 restTemplate.exchange(
-                        "http://localhost:8081/api/ratings/user/" + id,
+                        "http://RATINGSERVICE/api/ratings/user/" + id,
                         HttpMethod.GET,
                         null,
                         new ParameterizedTypeReference<List<RatingDto>>() {}
@@ -119,11 +138,11 @@ public class UserServicesImpl implements userServices {
             ratings.forEach(rating -> {
                 try {
                     HotelDto hotel = restTemplate.getForObject(
-                            "http://localhost:8082/api/hotels/" + rating.getHotelId(),
+                            "http://HOTELDETAILS/api/hotels/" + rating.getHotelId(),
                             HotelDto.class
                     );
 
-                    rating.setHotel(hotel); // ✅ FIXED
+                    rating.setHotel(hotel); // FIXED
 
                 } catch (Exception e) {
                     System.out.println("Hotel not found for id: " + rating.getHotelId());
