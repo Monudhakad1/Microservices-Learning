@@ -1,6 +1,8 @@
 package com.usermicro.userservicemicroservices.Services.impl;
 
 import com.usermicro.userservicemicroservices.Exceptions.ResourceNotFoundException;
+import com.usermicro.userservicemicroservices.ExternalServices.HotelService;
+import com.usermicro.userservicemicroservices.ExternalServices.RatingService;
 import com.usermicro.userservicemicroservices.Repository.UserRepo;
 import com.usermicro.userservicemicroservices.Services.userServices;
 import com.usermicro.userservicemicroservices.entity.Dto.HotelDto;
@@ -36,10 +38,16 @@ public class UserServicesImpl implements userServices {
         this.userMapper = userMapper;
     }
 
+//    @Autowired
+//    private RestTemplate restTemplate;
+    // feign client
     @Autowired
-    private RestTemplate restTemplate ;
+    private HotelService hotelService;
 
-    private Logger logger= LoggerFactory.getLogger(UserServicesImpl.class);
+    @Autowired
+    private RatingService ratingService;
+
+    private Logger logger = LoggerFactory.getLogger(UserServicesImpl.class);
 
 
     //  SAVE
@@ -64,15 +72,17 @@ public class UserServicesImpl implements userServices {
                 .toList();
 
         // STEP 3: call rating service ONCE
-        ResponseEntity<List<RatingDto>> response =
-                restTemplate.exchange(
-                        "http://RATINGSERVICE/api/ratings/users?ids=" + String.join(",", userIds),
-                        HttpMethod.GET,
-                        null,
-                        new ParameterizedTypeReference<List<RatingDto>>() {}
-                );
+    /* ResponseEntity<List<RatingDto>> response =
+            restTemplate.exchange(
+                    "http://RATINGSERVICE/api/ratings/users?ids=" + String.join(",", userIds),
+                    HttpMethod.GET,
+                    null,
+                    new ParameterizedTypeReference<List<RatingDto>>() {}
+            );
 
-        List<RatingDto> allRatings = response.getBody();
+    List<RatingDto> allRatings = response.getBody();*/
+
+        List<RatingDto> allRatings = ratingService.getRatingsByUserIds(userIds);
 
         // STEP 4: null safety
         if (allRatings == null) {
@@ -80,17 +90,32 @@ public class UserServicesImpl implements userServices {
         }
 
         // STEP 5: fetch hotel for each rating
+
+        // rest template
+//    allRatings.forEach(rating -> {
+//        try {
+//            HotelDto hotel = restTemplate.getForObject(
+//                    "http://HOTELDETAILS/api/hotels/" + rating.getHotelId(),
+//                    HotelDto.class
+//            );
+//
+//            rating.setHotel(hotel); //  IMPORTANT
+//
+//        } catch (Exception e) {
+//            System.out.println("Hotel not found for id: " + rating.getHotelId());
+//        }
+//    });
+
+        // Feign client
         allRatings.forEach(rating -> {
             try {
-                HotelDto hotel = restTemplate.getForObject(
-                        "http://HOTELDETAILS/api/hotels/" + rating.getHotelId(),
-                        HotelDto.class
-                );
+                HotelDto hotel = hotelService.getHotel(rating.getHotelId());
 
-                rating.setHotel(hotel); //  IMPORTANT
+                rating.setHotel(hotel); // IMPORTANT
 
             } catch (Exception e) {
-                System.out.println("Hotel not found for id: " + rating.getHotelId());
+                //  replace System.out with logging in real projects
+                logger.warn("Hotel not found for id: {}", rating.getHotelId());
             }
         });
 
@@ -105,7 +130,10 @@ public class UserServicesImpl implements userServices {
             UserDto dto = userMapper.toDto(user);
 
             dto.setRatings(
-                    ratingMap.getOrDefault(user.getUserId(), new ArrayList<>()) //  FIXED
+                    ratingMap.getOrDefault(
+                            user.getUserId(),
+                            new ArrayList<>() // FIXED
+                    )
             );
 
             return dto;
@@ -122,7 +150,7 @@ public class UserServicesImpl implements userServices {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         // STEP 2: Fetch ratings (FIXED URL )
-        ResponseEntity<List<RatingDto>> response =
+      /*  ResponseEntity<List<RatingDto>> response =
                 restTemplate.exchange(
                         "http://RATINGSERVICE/api/ratings/user/" + id,
                         HttpMethod.GET,
@@ -130,10 +158,12 @@ public class UserServicesImpl implements userServices {
                         new ParameterizedTypeReference<List<RatingDto>>() {}
                 );
 
-        List<RatingDto> ratings = response.getBody();
+        List<RatingDto> ratings = response.getBody();*/
+
+        List<RatingDto> ratings = ratingService.getRatingsByUserId(id);
 
         // STEP 3: Fetch hotel for each rating
-        if (ratings != null) {
+       /* if (ratings != null) {
             ratings.forEach(rating -> {
                 try {
                     HotelDto hotel = restTemplate.getForObject(
@@ -147,8 +177,20 @@ public class UserServicesImpl implements userServices {
                     System.out.println("Hotel not found for id: " + rating.getHotelId());
                 }
             });
-        }
+        }*/
+        //Feign client
+        if (ratings != null) {
+            ratings.forEach(rating -> {
+                try {
+                    HotelDto hotel = hotelService.getHotel(rating.getHotelId());
 
+                    rating.setHotel(hotel); // FIXED
+
+                } catch (Exception e) {
+                    logger.warn("Hotel not found for id: {}", rating.getHotelId());
+                }
+            });
+        }
         // STEP 4: Map user
         UserDto userDto = userMapper.toDto(user);
 
