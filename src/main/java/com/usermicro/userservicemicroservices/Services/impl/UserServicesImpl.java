@@ -31,7 +31,6 @@ public class UserServicesImpl implements userServices {
     private final userMapper userMapper;
 
 
-
     public UserServicesImpl(UserRepo userRepo, userMapper userMapper) {
         this.userRepo = userRepo;
         this.userMapper = userMapper;
