@@ -3,7 +3,11 @@ package com.usermicro.userservicemicroservices.Controllers;
 import com.usermicro.userservicemicroservices.Services.userServices;
 import com.usermicro.userservicemicroservices.entity.Dto.UserDto;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.ratelimiter.annotation.RateLimiter;
+import io.github.resilience4j.retry.annotation.Retry;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,7 +20,7 @@ import java.util.List;
 public class UserController {
 
     private final userServices userService;
-
+    Logger log = LoggerFactory.getLogger(UserController.class);
     //  CREATE
     @PostMapping
     public ResponseEntity<UserDto> createUser(@RequestBody UserDto userDto) {
@@ -25,16 +29,22 @@ public class UserController {
     }
 
     //  GET ALL
-    @CircuitBreaker(name = "ratingHotelBreaker", fallbackMethod = "ratingHotelFallback")
+    int retryCount= 1;
+//    @CircuitBreaker(name = "ratingHotelBreaker", fallbackMethod = "ratingHotelFallback")
     @GetMapping
+    @Retry(name="ratingHotelService",fallbackMethod = "ratingHotelFallback")
     public ResponseEntity<List<UserDto>> getAllUsers() {
         return ResponseEntity.ok(userService.getAllUsers());
     }
 
     //  GET BY ID
     @GetMapping("/{id}")
-    @CircuitBreaker(name = "ratingHotelBreakerById", fallbackMethod = "ratingHotelFallbackById")
+//    @CircuitBreaker(name = "ratingHotelBreakerById", fallbackMethod = "ratingHotelFallbackById")
+//    @Retry(name="ratingHotelServiceById",fallbackMethod = "ratingHotelFallbackById")
+    @RateLimiter(name="userRateLimiter",fallbackMethod = "ratingHotelFallbackById")
     public ResponseEntity<UserDto> getUserById(@PathVariable String id) {
+        log.info("Retry attempt: " + retryCount);
+        retryCount++;
         return ResponseEntity.ok(userService.getUserById(id));
     }
 
@@ -72,6 +82,8 @@ public class UserController {
     }
 
     //fallback for fetching using user id
+
+
     public ResponseEntity<UserDto> ratingHotelFallbackById(String id, Exception e) {
         // Log the exception (optional)
         System.err.println("Circuit breaker triggered for user id: " + id + " - " + e.getMessage());
@@ -83,6 +95,6 @@ public class UserController {
                 .email("dummy@gmail.com")
                 .about("Dummy about services are down")
                 .build();
-        return new ResponseEntity<>(user, HttpStatus.OK);
+        return new ResponseEntity<>(user, HttpStatus.BAD_REQUEST);
     }
 }

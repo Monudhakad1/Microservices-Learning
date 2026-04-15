@@ -16,10 +16,58 @@ spring:
       hibernate:
         format_sql: true
   config:
-    import:
-        - configserver:http://localhost:8085
+    import: optional:configserver:http://localhost:8085
 
 server:
   port: 8080
 
+#  resilence and actuators config
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: always
+  health:
+    circuit breakers:
+      enabled: true
+
+resilience4j:
+  circuit breaker:
+     instances:
+      ratingHotelBreaker:
+        registerHealthIndicator: true
+        event-consumer-buffer-size: 10
+        failure-rate-threshold: 50
+        minimum-number-of-calls: 5
+        automatic-transition-from-open-to-half-open-enabled: true
+        wait-duration-in-open-state: 6s
+        permitted-number-of-calls-in-half-open-state: 3
+        sliding-window-size: 10
+        sliding-window-type: COUNT_BASED
+
+      ratingHotelBreakerById:
+        registerHealthIndicator: true
+        event-consumer-buffer-size: 10
+        failure-rate-threshold: 50
+
+
+  retry:
+    instances:
+      ratingHotelServiceById:
+        max-attempts: 3
+        wait-duration: 4s
+  rate limiter:
+    instances:
+      userRateLimiter:
+        limit-for-period: 5
+        limit-refresh-period: 4s
+        timeout-duration: 0
+
+
+
+#rate limiter : limits the services use in your microservices
+# security and reliability // request per second , hour , minutes
 
